@@ -1,0 +1,13 @@
+# project configurations files
+.idea
+
+# mac DS_Store.
+.DS_Store
+**/.DS_Store
+
+# temparory folders
+**/temp
+debug/
+
+# __pycache__
+**/__pycache__
