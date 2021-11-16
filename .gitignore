@@ -11,3 +11,6 @@ debug/
 
 # __pycache__
 **/__pycache__
+
+# dataset
+/data

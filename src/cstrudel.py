@@ -259,7 +259,7 @@ class cstrudel:
         return true_labels, pred_labels
 
 
-def create_features(_all_table_cells, _all_table_annotations, _all_filenames, _all_sheetnames):
+def create_cell_features(_all_table_cells, _all_table_annotations, _all_filenames, _all_sheetnames):
     _flattened_feature_vectors = []
     _flattened_annotations = []
     _flattened_metadata = []

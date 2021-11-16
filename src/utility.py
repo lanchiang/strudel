@@ -1,4 +1,5 @@
 # Created by lan at 2021/11/9
+from math import sqrt
 
 date_patterns = ['%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d', '%y/%m/%d', '%d/%m/%y']
 import datetime
@@ -16,6 +17,7 @@ def is_numeric(value):
         return True
     except:
         return False
+
 
 def to_numeric(value):
     if not is_numeric(value):
@@ -54,3 +56,20 @@ def detect_datatype(value):
             return 3
         else:
             return 4
+
+
+def calculate_hist_diff(hist1, hist2):
+    total_sum = sum([sqrt(e1 * e2) for e1, e2 in zip(hist1, hist2)])
+
+    factor = sqrt(sum(hist1) * sum(hist2))
+    if factor != 0.0:
+        bhattacharyya_factor = 1 / factor
+
+        hd = 1 - bhattacharyya_factor * total_sum
+        if hd > 0.0:
+            hd = sqrt(hd)
+        else:
+            hd = 0.0
+    else:
+        hd = 0.0
+    return hd

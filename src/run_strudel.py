@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os.path
 from timeit import default_timer
 
 # from create_database import load
+from pebble import ProcessPool
+
 from cstrudel import cstrudel
 # from evaluation import collect_expr_results
-from lstrudel import LStrudel
+from lstrudel import LStrudel, create_line_feature_vector
+from src.data import load_data
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Argument parser for line & cell classification script.')
@@ -14,9 +18,9 @@ if __name__ == '__main__':
     parser.add_argument('-a', default='l2c', help='Specify which algorithm_package to run.')
     parser.add_argument('-c', default='all', help='The tested component for cstrudel.')
     parser.add_argument('-p', default=False, type=bool, help='Populating the database with data files. Default is false.')
-    parser.add_argument('-f', default='./data/', help='Path of the data files to be populated into the database.')
-    parser.add_argument('-v', default='./feature_vec/', help='Path of feature vectors.')
-    parser.add_argument('-o', default='./result/', help='Path where all experiment result files are stored.')
+    parser.add_argument('-f', default='../data/', help='Path of the data files to be populated into the database.')
+    parser.add_argument('-v', default='../feature_vec/', help='Path of feature vectors.')
+    parser.add_argument('-o', default='../result/', help='Path where all experiment result files are stored.')
     parser.add_argument('-para', help='The parameters used for the specified algorithm_package.')
     parser.add_argument('-ms', default=False, type=bool, help='Whether using model selection approach to select the best hyperparameters for the model.')
     parser.add_argument('-i', default=0, type=int, help='The number of this iteration.')
@@ -34,6 +38,9 @@ if __name__ == '__main__':
     parameters = args.para
     n_iter = str(args.i)
 
+    max_workers = int(os.cpu_count() * 0.5)
+    max_tasks = 10
+
     runtime = 0
     true_labels = None
     pred_labels = None
@@ -46,6 +53,13 @@ if __name__ == '__main__':
     #         load(data_file_path)
     #         logging.info('Data has been popluated in the database.')
     # else:
+
+    dataset_path = os.path.join(data_file_path, dataset_name + '.jl.gz')
+    dataset = load_data(dataset_path=dataset_path)
+
+    with ProcessPool(max_workers=max_workers, max_tasks=max_tasks) as pool:
+        optional_line_feature_vectors = pool.map(create_line_feature_vector, dataset).result()
+
     if algorithm_name == 'cstrudel':
         algorithm_type = 'cell'
         algorithm = cstrudel(data_file_path, dataset_name, feature_vector_path, cstrudel_component)
