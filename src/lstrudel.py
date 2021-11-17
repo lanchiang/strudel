@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import ndcg_score
 from sklearn.model_selection import StratifiedKFold
 
+from src.derived_detector import detect_derived_cells
 from src.utility import is_numeric, detect_datatype, calculate_hist_diff
 
 
@@ -49,6 +50,12 @@ def create_line_feature_vector(file_json_dict):
         return n_dcg
 
     f_dcg = np.apply_along_axis(func1d=discounted_cumulative_gain, axis=1, arr=file_array)
+
+    num_lines = len(file_array)
+    f_line_position = []
+    for index, row in enumerate(file_array):
+        f_line_position.append((index + 1) / num_lines)
+    f_line_position = np.array(f_line_position)
 
     def empty_cell_ratio(row):
         re_pattern = row_emptiness_pattern(row)
@@ -186,9 +193,25 @@ def create_line_feature_vector(file_json_dict):
 
     f_data_type_before = np.apply_along_axis(func1d=data_type_before, axis=1, arr=windows)
 
+    is_derived_file_array, _ = detect_derived_cells(file_array)
 
+    f_derived_cell_coverage = []
+    for row, is_derived_row in zip(file_array, is_derived_file_array):
+        num_is_derived = len([cell for cell in is_derived_row if cell == 'd'])
+        num_numeric = len([cell for cell in row if is_numeric(cell)])
+        coverage = num_is_derived / num_numeric if num_numeric != 0 else 0.0
+        f_derived_cell_coverage.append(coverage)
+    f_derived_cell_coverage = np.array(f_derived_cell_coverage)
 
-    lstrudel_feature_vector = pandas.DataFrame({'has_derived_keyword': f_kw_exist,
+    labels = np.array(file_json_dict['line_annotation'])
+
+    line_number = np.array(range(file_array.shape[0]))
+
+    lstrudel_feature_vector = pandas.DataFrame({'file_name': file_json_dict['file_name'],
+                                                'sheet_name': file_json_dict['table_id'],
+                                                'line_number': line_number,
+                                                'line_position': f_line_position,
+                                                'has_derived_keyword': f_kw_exist,
                                                 'discounted_cumulative_gain': f_dcg,
                                                 'line_empty_cell_ratio': f_empty_cell_ratio,
                                                 'line_numeric_cell_ratio': f_numeric_cell_ratio,
@@ -199,7 +222,9 @@ def create_line_feature_vector(file_json_dict):
                                                 'hist_diff_after': f_hist_diff_after,
                                                 'hist_diff_before': f_hist_diff_before,
                                                 'data_type_after': f_data_type_after,
-                                                'data_type_before': f_data_type_before})
+                                                'data_type_before': f_data_type_before,
+                                                'derived_cell_coverage': f_derived_cell_coverage,
+                                                'line_label': labels})
 
     return lstrudel_feature_vector
 
@@ -239,13 +264,43 @@ def create_feature_vector(dataset_name, feature_vector_path):
 class LStrudel:
     algo_name = 'strudel_line'
 
-    def __init__(self, data_path, dataset_name, feature_vec_path):
+    def __init__(self, data_path, dataset_name, feature_vec_path, n_jobs=1):
         self.data_path = data_path
         self.dataset_name = dataset_name
         self.feature_vec_path = feature_vec_path
         self.metadata = None
         self.result = pandas.DataFrame()
+        self.n_jobs = n_jobs
         self.runtime = 0
+
+    def fit(self, train_set: pandas.DataFrame, test_set: pandas.DataFrame, method='predict_proba'):
+        profile_columns = ['file_name', 'sheet_name', 'line_number']
+
+        empty_line_removed_train_set = train_set[train_set['line_label'] != 'empty'].reset_index()
+        empty_line_removed_test_set = test_set[test_set['line_label'] != 'empty'].reset_index()
+
+        test_set_line_profile = empty_line_removed_test_set[profile_columns]
+
+        clean_train_set = empty_line_removed_train_set.drop(profile_columns, axis=1)
+        clean_test_set = empty_line_removed_test_set.drop(profile_columns, axis=1)
+
+        X_train = clean_train_set.iloc[:, 0:len(clean_train_set.columns)-1]
+        y_train = clean_train_set.iloc[:, len(clean_train_set.columns) - 1:len(clean_train_set.columns)]
+
+        X_test = clean_test_set.iloc[:, 0:len(clean_test_set.columns)-1]
+        y_test = clean_test_set.iloc[:, len(clean_test_set.columns) - 1: len(clean_test_set.columns)]
+
+        clf = RandomForestClassifier(n_jobs=self.n_jobs)
+
+        clf.fit(X_train, np.ravel(y_train))
+
+        pred_prob = clf.predict_proba(X_test)
+
+        pred_prob_df = pandas.DataFrame(data=pred_prob, columns=clf.classes_ + '_prob')
+
+        test_set_with_line_prob = pandas.concat([test_set_line_profile, pred_prob_df, y_test], axis=1)
+
+        return test_set_with_line_prob
 
     def execute(self, method='predict_proba'):
         global clf, pred_proba_df
@@ -327,12 +382,13 @@ class LStrudel:
 
 
 if __name__ == '__main__':
-    data_path = '../data/saus.jl.gz'
-    dataset_name = 'saus'
-    feature_vector_path = '/Users/lan/PycharmProjects/table-content-type-classification/feature_vec/lstrudel'
-    feature_vector_path = feature_vector_path + '/' if not str(feature_vector_path).endswith('/') else (
-        feature_vector_path)
-    lstrudel_algorithm = LStrudel(data_path, dataset_name, feature_vector_path)
-    pred_proba, metadata = lstrudel_algorithm.execute()
-    pred_proba = pandas.concat([pred_proba, metadata], axis=1)
-    pred_proba.to_csv('/Users/lan/PycharmProjects/table-content-type-classification/lstrudel_prob/' + dataset_name + '.csv', index=False)
+    # data_path = '../data/saus.jl.gz'
+    # dataset_name = 'saus'
+    # feature_vector_path = '/Users/lan/PycharmProjects/table-content-type-classification/feature_vec/lstrudel'
+    # feature_vector_path = feature_vector_path + '/' if not str(feature_vector_path).endswith('/') else (
+    #     feature_vector_path)
+    # lstrudel_algorithm = LStrudel(data_path, dataset_name, feature_vector_path)
+    # pred_proba, metadata = lstrudel_algorithm.execute()
+    # pred_proba = pandas.concat([pred_proba, metadata], axis=1)
+    # pred_proba.to_csv('/Users/lan/PycharmProjects/table-content-type-classification/lstrudel_prob/' + dataset_name + '.csv', index=False)
+    pass

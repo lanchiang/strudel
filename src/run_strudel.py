@@ -10,11 +10,15 @@ from pebble import ProcessPool
 from cstrudel import cstrudel
 # from evaluation import collect_expr_results
 from lstrudel import LStrudel, create_line_feature_vector
+from src import lstrudel
+from src.classification import CrossValidation
 from src.data import load_data
+from src.utility import process_pebble_results
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Argument parser for line & cell classification script.')
-    parser.add_argument('-d', default='all', help="Specify the dataset. Default 'all' uses all data-sets.")
+    parser.add_argument('-d', default='all', help="Specify the training dataset. Default 'all' uses all data-sets.")
+    parser.add_argument('-t', help='Specify the test dataset. If not given, apply cross-validation on the training dataset.')
     parser.add_argument('-a', default='l2c', help='Specify which algorithm_package to run.')
     parser.add_argument('-c', default='all', help='The tested component for cstrudel.')
     parser.add_argument('-p', default=False, type=bool, help='Populating the database with data files. Default is false.')
@@ -28,7 +32,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    dataset_name = args.d
+    training_dataset = args.d
+    test_dataset = args.t
     algorithm_name = args.a
     cstrudel_component = args.c
     is_populate = args.p
@@ -46,26 +51,25 @@ if __name__ == '__main__':
     pred_labels = None
     algorithm_type = None
     description = None
-    # if is_populate:
-    #     if data_file_path is None:
-    #         logging.error('Choose to populate the database whereas data file path is not specified.')
-    #     else:
-    #         load(data_file_path)
-    #         logging.info('Data has been popluated in the database.')
-    # else:
 
-    dataset_path = os.path.join(data_file_path, dataset_name + '.jl.gz')
-    dataset = load_data(dataset_path=dataset_path)
+    if test_dataset is None:
+        dataset_path = os.path.join(data_file_path, training_dataset + '.jl.gz')
+        dataset = load_data(dataset_path=dataset_path)
 
-    with ProcessPool(max_workers=max_workers, max_tasks=max_tasks) as pool:
-        optional_line_feature_vectors = pool.map(create_line_feature_vector, dataset).result()
+        with ProcessPool(max_workers=max_workers, max_tasks=max_tasks) as pool:
+            optional_line_feature_vectors = pool.map(create_line_feature_vector, dataset).result()
+
+        line_fvs_dataset = process_pebble_results(optional_line_feature_vectors)
+
+        cv = CrossValidation(n_splits=2)
+        cv.cross_validate(line_fvs_dataset)
 
     if algorithm_name == 'cstrudel':
         algorithm_type = 'cell'
-        algorithm = cstrudel(data_file_path, dataset_name, feature_vector_path, cstrudel_component)
+        algorithm = cstrudel(data_file_path, training_dataset, feature_vector_path, cstrudel_component)
         true_labels, pred_labels = algorithm.run()
         result = algorithm.result
-        result_output_path = output_path + dataset_name + '/' + 'result_' + n_iter + '.csv'
+        result_output_path = output_path + training_dataset + '/' + 'result_' + n_iter + '.csv'
         result.to_csv(result_output_path, index=False)
         description = cstrudel_component
         runtime = algorithm.runtime

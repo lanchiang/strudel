@@ -1,6 +1,8 @@
 # Created by lan at 2021/11/9
 from math import sqrt
 
+import pandas
+
 date_patterns = ['%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d', '%y/%m/%d', '%d/%m/%y']
 import datetime
 
@@ -73,3 +75,9 @@ def calculate_hist_diff(hist1, hist2):
     else:
         hd = 0.0
     return hd
+
+
+def process_pebble_results(results):
+    line_fvs = [line_fv for line_fv in results]
+    line_fv_dataset = pandas.concat(line_fvs)
+    return line_fv_dataset
