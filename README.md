@@ -10,6 +10,7 @@ Detecting structure in verbose CSV files via classifying lines and cells.
 ```
 pip install -r requirements.txt
 ```
+* We recommend to install the required libraries in a separated virtual environment.
 
 ### Executing program
 
