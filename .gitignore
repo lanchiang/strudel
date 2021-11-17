@@ -17,4 +17,4 @@ debug/
 /enhanced_data
 
 # one-off scripts used only locally
-src/temp_script.py
+strudel/temp_script.py
