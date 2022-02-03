@@ -37,8 +37,11 @@ This project is licensed under the [Apache License 2.0](https://www.apache.org/l
 
 ## Acknowledgments
 
-* [Gerardo Vitagliano](https://github.com/vitaglianog)
-* [Felix Naumann](https://github.com/felix-naumann)
+* Co-authors
+   * [Gerardo Vitagliano](https://github.com/vitaglianog)
+   * [Felix Naumann](https://github.com/felix-naumann)
+* Contributors
+   * [Ethan Rogers](https://github.com/erogers6264)
 
 ## Contact
 Please contact [Lan Jiang](mailto:lan.jiang@hpi.de) if you have any questions or want to report bugs.
