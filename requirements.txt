@@ -15,7 +15,7 @@ regex==2021.11.2
 rolling==0.3.0
 scikit-learn==1.0.2
 scipy==1.7.3
-setuptools==51.0.0.post20210110
+setuptools==51.0.0
 six==1.16.0
 threadpoolctl==2.2.0
 tqdm==4.62.3
